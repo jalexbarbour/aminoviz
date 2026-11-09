@@ -132,7 +132,7 @@ function SourcesLine({ sources }: { sources: readonly SourceLink[] }) {
             href={source.url}
             target="_blank"
             rel="noopener"
-            className="text-copper underline decoration-copper/40 underline-offset-2 hover:decoration-copper"
+            className="inline-block min-h-11 max-w-full py-3 text-copper underline decoration-copper/40 underline-offset-2 hover:decoration-copper"
           >
             {source.label}
           </a>
@@ -312,20 +312,22 @@ function PropensityChart({
           residue. The line at 1 is the neutral propensity.
         </p>
       </div>
-      <div className="h-56 rounded-card border border-line bg-surface p-3">
+      <div className="h-56 min-w-0 max-w-full rounded-card border border-line bg-surface p-3">
         {mounted ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
               <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis
                 dataKey="position"
                 stroke="var(--color-muted)"
                 tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+                tickMargin={6}
+                minTickGap={32}
               />
               <YAxis
                 stroke="var(--color-muted)"
                 tick={{ fill: "var(--color-muted)", fontSize: 12 }}
-                width={36}
+                width={48}
               />
               <Tooltip
                 formatter={(value, name) => [Number(value).toFixed(2), name]}
