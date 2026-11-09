@@ -57,12 +57,38 @@
     cursor: pointer;
   }
 
-  input[type="range"] {
+  input[type="range"],
+  textarea {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  input[type="range"] {
     height: 2.75rem;
     accent-color: var(--color-copper);
     background: transparent;
   }
+}
+
+.how-to > summary {
+  list-style: none;
+}
+
+.how-to > summary::-webkit-details-marker {
+  display: none;
+}
+
+.how-to .how-to-hide {
+  display: none;
+}
+
+.how-to[open] .how-to-show {
+  display: none;
+}
+
+.how-to[open] .how-to-hide {
+  display: inline;
 }
 
 @media (prefers-reduced-motion: reduce) {
