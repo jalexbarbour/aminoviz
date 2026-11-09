@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { analyze } from "./chemistry.ts";
 import { EXAMPLES } from "./examples.ts";
 import { modifiedPeptide, residueNote, SEMAGLUTIDE } from "./modified.ts";
-import { RESIDUES } from "./residues.ts";
+import { RESIDUES, WATER_DA } from "./residues.ts";
 
 type LegacyGroup = { id: string; label: string; pKa: number; kind: string; charge: number };
 type LegacyModel = {
@@ -47,19 +47,28 @@ function close(actual: number, expected: number, label: string) {
   assert.ok(gap < 1e-6, `${label}: source ${actual} vs live ${expected} (gap ${gap})`);
 }
 
+function bareChainMass(seq: string): number {
+  return [...seq].reduce((sum, letter) => sum + RESIDUES[letter]!.mass, 0) + WATER_DA;
+}
+
 describe("live bundle parity", () => {
-  it("covers the same examples, in the same order", () => {
+  it("keeps the live examples first, in the same order", () => {
     assert.deepEqual(
-      EXAMPLES.map((example) => example.name),
+      EXAMPLES.slice(0, legacy.nA.length).map((example) => example.name),
       legacy.nA.map((example) => example.name),
     );
     assert.deepEqual(
-      EXAMPLES.map((example) => example.seq),
+      EXAMPLES.slice(0, legacy.nA.length).map((example) => example.seq),
       legacy.nA.map((example) => example.seq),
+    );
+    assert.deepEqual(
+      EXAMPLES.slice(legacy.nA.length).map((example) => example.id),
+      ["lira", "exe", "teri", "biv"],
     );
   });
 
   for (const example of EXAMPLES) {
+    if (!legacy.nA.some((item) => item.seq === example.seq)) continue;
     it(`${example.name}: mass, charge at pH 7, pI, and GRAVY`, () => {
       const letters = [...example.seq];
       const live = legacy.$k(letters, 7, example.window);
@@ -149,6 +158,7 @@ describe("stand-ins", () => {
         const label = `${annotation?.text ?? ""} ${shown.note}`;
         assert.match(label, new RegExp(`${standIn.label} stand-ins`));
       }
+      if (!legacy.nA.some((item) => item.seq === example.seq)) continue;
       const live = legacy.zk(letters);
       assert.ok(live);
       const notes = live.n ?? legacy.rA;
@@ -156,5 +166,109 @@ describe("stand-ins", () => {
         assert.deepEqual(residueNote(letters, Number(index)), note, example.name);
       }
     }
+  });
+});
+
+/** Published average molecular weights cited beside the new entries. */
+const PUBLISHED_AVERAGE_MW: Record<string, number> = {
+  lira: 3751.2,
+  exe: 4186.6,
+  teri: 4117.8,
+  biv: 2180.32,
+};
+
+describe("new annotated examples", () => {
+  for (const [id, published] of Object.entries(PUBLISHED_AVERAGE_MW)) {
+    it(`${id}: displayed mass is the published average within 0.05 Da`, () => {
+      const example = EXAMPLES.find((item) => item.id === id);
+      assert.ok(example);
+      const letters = [...example.seq];
+      const peptide = modifiedPeptide(letters);
+      const bare = bareChainMass(example.seq);
+      const displayed = analyze(letters, 7, example.window).mass;
+      const gap = Math.abs(displayed - published);
+      assert.ok(gap <= 0.05, `${example.name}: ${displayed} vs ${published} (gap ${gap})`);
+      if (peptide) {
+        assert.ok(
+          Math.abs(peptide.adductMass - (published - bare)) < 0.0001,
+          `${example.name} adduct ${peptide.adductMass} vs ${published - bare}`,
+        );
+      } else {
+        assert.ok(Math.abs(bare - published) <= 0.05);
+      }
+      for (let index = 0; index < letters.length; index++) {
+        assert.deepEqual(residueNote(letters, index), peptide?.notes[index] ?? null, `${id}:${index}`);
+      }
+    });
+  }
+
+  it("places palmitoyl-γGlu on liraglutide Lys26 and arginine at position 34", () => {
+    const example = EXAMPLES.find((item) => item.id === "lira")!;
+    const letters = [...example.seq];
+    assert.equal(letters.length, 31);
+    assert.equal(letters[19], "K");
+    assert.equal(letters[27], "R");
+    assert.equal(example.focus, 19);
+    const peptide = modifiedPeptide(letters)!;
+    assert.equal(peptide.lysineIndex, 19);
+    assert.equal(peptide.cTerminalAmide, false);
+    assert.deepEqual(
+      peptide.carboxylates.map((group) => ({ label: group.label, pKa: group.pKa })),
+      [{ label: "Lys20 · spacer carboxyl", pKa: 2.19 }],
+    );
+    const model = analyze(letters, 7, example.window);
+    assert.deepEqual(
+      model.groups
+        .filter((group) => group.label.startsWith("Lys20"))
+        .map((group) => ({ label: group.label, pKa: group.pKa, kind: group.kind })),
+      [{ label: "Lys20 · spacer carboxyl", pKa: 2.19, kind: "acid" }],
+    );
+    assert.equal(model.groups.some((group) => group.id === "K-19"), false);
+    assert.equal(residueNote(letters, 19)?.sideChain, "—(CH₂)₄—NH—γGlu–palmitoyl");
+  });
+
+  it("keeps exenatide unmodified except for the C-terminal amide", () => {
+    const example = EXAMPLES.find((item) => item.id === "exe")!;
+    const letters = [...example.seq];
+    assert.equal(letters.length, 39);
+    assert.equal(example.focus, 38);
+    const peptide = modifiedPeptide(letters)!;
+    assert.equal(peptide.lysineIndex, -1);
+    assert.equal(peptide.cTerminalAmide, true);
+    assert.deepEqual(peptide.carboxylates, []);
+    assert.deepEqual(peptide.standIns, {});
+    const model = analyze(letters, 7, example.window);
+    assert.equal(model.groups.some((group) => group.id === "c-term"), false);
+    assert.equal(model.groups.some((group) => group.id === "K-11" && group.kind === "base"), true);
+    assert.equal(model.groups.some((group) => group.id === "K-26" && group.kind === "base"), true);
+  });
+
+  it("leaves teriparatide as an unmodified free-acid chain", () => {
+    const example = EXAMPLES.find((item) => item.id === "teri")!;
+    assert.equal(example.seq, "SVSEIQLMHNLGKHLNSMERVEWLRKKLQDVHNF");
+    assert.equal(example.seq.length, 34);
+    assert.equal(example.focus, 0);
+    assert.equal(modifiedPeptide([...example.seq]), null);
+    const model = analyze([...example.seq], 7, example.window);
+    assert.equal(model.groups.some((group) => group.id === "c-term"), true);
+  });
+
+  it("draws bivalirudin D-Phe on the phenylalanine card", () => {
+    const example = EXAMPLES.find((item) => item.id === "biv")!;
+    const letters = [...example.seq];
+    assert.equal(letters[0], "F");
+    assert.equal(letters.length, 20);
+    assert.equal(example.focus, 0);
+    const peptide = modifiedPeptide(letters)!;
+    assert.deepEqual(peptide.standIns[0], {
+      letter: "F",
+      copiedFrom: "F",
+      label: "phenylalanine",
+    });
+    assert.equal(peptide.cTerminalAmide, false);
+    assert.deepEqual(peptide.carboxylates, []);
+    assert.match(residueNote(letters, 0)?.text ?? "", /phenylalanine stand-ins/);
+    const model = analyze(letters, 7, example.window);
+    assert.equal(model.groups.some((group) => group.id === "c-term"), true);
   });
 });
