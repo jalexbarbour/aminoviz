@@ -21,6 +21,7 @@ import {
 import { modifiedPeptide, residueNote } from "@/lib/amino/modified";
 import { ExportMenu } from "@/components/aminoviz/export-menu";
 import { SourcesAndStandins } from "@/components/aminoviz/sources-and-standins";
+import { Compare } from "@/components/aminoviz/compare";
 import { useBenchUrlState } from "@/lib/url-state";
 
 const CLASS_CHIP: Record<SideClass, string> = {
@@ -64,6 +65,7 @@ export function Bench() {
     copied,
     copyLink,
   } = useBenchUrlState();
+  const [view, setView] = useState<"read" | "compare">("read");
   const mounted = useMounted();
 
   const parsed = useMemo(() => parseSequence(raw), [raw]);
@@ -120,8 +122,40 @@ export function Bench() {
           Paste amino acids, or build a peptide one residue at a time. The numbers are textbook
           models — mass, charge, hydropathy, and a Chou–Fasman call — not a measured structure.
         </p>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Bench view">
+          <button
+            type="button"
+            aria-pressed={view === "read"}
+            onClick={() => setView("read")}
+            className={
+              "min-h-11 rounded-full border px-4 py-2 text-sm transition-colors " +
+              (view === "read"
+                ? "border-copper bg-copper text-ink"
+                : "border-line bg-surface-2 text-fg hover:border-copper")
+            }
+          >
+            Read
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "compare"}
+            onClick={() => setView("compare")}
+            className={
+              "min-h-11 rounded-full border px-4 py-2 text-sm transition-colors " +
+              (view === "compare"
+                ? "border-copper bg-copper text-ink"
+                : "border-line bg-surface-2 text-fg hover:border-copper")
+            }
+          >
+            Compare
+          </button>
+        </div>
       </header>
 
+      {view === "compare" ? (
+        <Compare />
+      ) : (
+      <div className="flex min-w-0 flex-col gap-6">
       <section className="flex flex-col gap-4 rounded-card border border-line bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap gap-2">
           {EXAMPLES.map((example) => {
@@ -228,6 +262,8 @@ export function Bench() {
           Add a residue to see mass, charge, and how the side chains behave. One-letter codes can
           be run together. Three-letter codes need a separator, as in Gly-Leu, or a full name.
         </p>
+      )}
+      </div>
       )}
     </main>
   );
