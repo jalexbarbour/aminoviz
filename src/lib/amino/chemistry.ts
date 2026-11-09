@@ -8,21 +8,10 @@ import {
   type IonKind,
   type Residue,
   type SideClass,
-} from "./residues";
+} from "./residues.ts";
+import { modifiedPeptide, type ModifiedPeptide } from "./modified.ts";
 
-/** Semaglutide, N-terminus first. X is α-aminoisobutyric acid. */
-export const SEMAGLUTIDE = "HXEGTFTSDVSSYLEGQAAKEFIAWLVRGRG";
-const SEMAGLUTIDE_LYS = 19;
-/** Brings the bare chain up to the published average mass, 4113.6 Da. */
-const SEMAGLUTIDE_ADDUCT_DA = 715.83;
-const SEMAGLUTIDE_ACIDS = [
-  { id: "spacer", label: "Lys20 · spacer carboxyl", pKa: 2.19 },
-  { id: "diacid", label: "Lys20 · C18 diacid", pKa: 4.9 },
-] as const;
-
-function isSemaglutide(letters: string[]): boolean {
-  return letters.join("") === SEMAGLUTIDE;
-}
+export { SEMAGLUTIDE } from "./modified.ts";
 
 export type IonGroup = {
   id: string;
@@ -70,8 +59,12 @@ export function groupCharge(kind: IonKind, pKa: number, pH: number): number {
   return kind === "acid" ? protonated - 1 : protonated;
 }
 
-function ionGroups(residues: Residue[], pH: number, letters: string[] = []): IonGroup[] {
-  const acylatedLys = isSemaglutide(letters) ? SEMAGLUTIDE_LYS : -1;
+function ionGroups(
+  residues: Residue[],
+  pH: number,
+  modification: ModifiedPeptide | null,
+): IonGroup[] {
+  const acylatedLys = modification ? modification.lysineIndex : -1;
   const groups: IonGroup[] = [
     {
       id: "n-term",
@@ -83,8 +76,8 @@ function ionGroups(residues: Residue[], pH: number, letters: string[] = []): Ion
     },
   ];
   residues.forEach((residue, index) => {
-    if (index === acylatedLys) {
-      for (const extra of SEMAGLUTIDE_ACIDS) {
+    if (index === acylatedLys && modification) {
+      for (const extra of modification.carboxylates) {
         groups.push({
           id: `K-${index}-${extra.id}`,
           label: extra.label,
@@ -106,19 +99,24 @@ function ionGroups(residues: Residue[], pH: number, letters: string[] = []): Ion
       charge: groupCharge(residue.ion, residue.pKa, pH),
     });
   });
-  groups.push({
-    id: "c-term",
-    label: "C-terminus · α-COO⁻",
-    kind: "acid",
-    pKa: C_TERM_PKA,
-    protonated: protonatedFraction(C_TERM_PKA, pH),
-    charge: groupCharge("acid", C_TERM_PKA, pH),
-  });
+  if (!modification?.cTerminalAmide) {
+    groups.push({
+      id: "c-term",
+      label: "C-terminus · α-COO⁻",
+      kind: "acid",
+      pKa: C_TERM_PKA,
+      protonated: protonatedFraction(C_TERM_PKA, pH),
+      charge: groupCharge("acid", C_TERM_PKA, pH),
+    });
+  }
   return groups;
 }
 
 export function netCharge(residues: Residue[], pH: number, letters: string[] = []): number {
-  return ionGroups(residues, pH, letters).reduce((sum, group) => sum + group.charge, 0);
+  return ionGroups(residues, pH, modifiedPeptide(letters)).reduce(
+    (sum, group) => sum + group.charge,
+    0,
+  );
 }
 
 /** Monotonic bisection. Charge falls as pH rises, so the root is the pI. */
@@ -298,7 +296,7 @@ function outcomeText(input: {
   mass: number;
   gravy: number;
   calls: StructureCall[];
-  adduct: boolean;
+  massSentence: string;
 }): string {
   const n = input.residues.length;
   const direction =
@@ -313,18 +311,17 @@ function outcomeText(input: {
     cys >= 2
       ? ` ${cys} cysteines could pair into ${Math.floor(cys / 2)} disulfide${cys >= 4 ? "s" : ""}.`
       : "";
-  const adduct = input.adduct ? " That mass includes the C18 diacid on Lys20." : "";
-  return `At pH ${input.pH.toFixed(1)} the net charge is ${input.charge.toFixed(2)}. The isoelectric point is about ${input.pI.toFixed(2)}, so in an electric field the chain would move ${direction}. Joining these ${n} amino acids makes ${waters} peptide bond${waters === 1 ? "" : "s"} and releases ${waters} water molecule${waters === 1 ? "" : "s"}, for a mass near ${input.mass.toFixed(1)} Da.${adduct} The sequence is ${gravyWords(input.gravy)}. ${callSummary(input.calls)}${disulfide}`;
+  return `At pH ${input.pH.toFixed(1)} the net charge is ${input.charge.toFixed(2)}. The isoelectric point is about ${input.pI.toFixed(2)}, so in an electric field the chain would move ${direction}. Joining these ${n} amino acids makes ${waters} peptide bond${waters === 1 ? "" : "s"} and releases ${waters} water molecule${waters === 1 ? "" : "s"}, for a mass near ${input.mass.toFixed(1)} Da.${input.massSentence} The sequence is ${gravyWords(input.gravy)}. ${callSummary(input.calls)}${disulfide}`;
 }
 
 export function analyze(letters: string[], pH: number, windowSize: number): Analysis {
   const residues = letters.map((letter) => RESIDUES[letter]!);
   const length = residues.length;
-  const adduct = isSemaglutide(letters);
+  const modification = modifiedPeptide(letters);
   const mass =
     residues.reduce((sum, residue) => sum + residue.mass, 0) +
     WATER_DA +
-    (adduct ? SEMAGLUTIDE_ADDUCT_DA : 0);
+    (modification?.adductMass ?? 0);
   const gravy = avg(residues.map((residue) => residue.kd));
   const mole = (letter: string) =>
     (residues.filter((residue) => residue.letter === letter).length / length) * 100;
@@ -333,7 +330,7 @@ export function analyze(letters: string[], pH: number, windowSize: number): Anal
   const cystinesPossible = Math.floor(
     residues.filter((residue) => residue.letter === "C").length / 2,
   );
-  const groups = ionGroups(residues, pH, letters);
+  const groups = ionGroups(residues, pH, modification);
   const charge = groups.reduce((sum, group) => sum + group.charge, 0);
   const pI = isoelectricPoint(residues, letters);
   const composition = CLASS_ORDER.map((klass) => {
@@ -367,7 +364,16 @@ export function analyze(letters: string[], pH: number, windowSize: number): Anal
     hydrophobicity,
     calls,
     windowSize: Math.max(1, Math.min(windowSize, length)),
-    outcome: outcomeText({ residues, pH, charge, pI, mass, gravy, calls, adduct }),
+    outcome: outcomeText({
+      residues,
+      pH,
+      charge,
+      pI,
+      mass,
+      gravy,
+      calls,
+      massSentence: modification?.massSentence ?? "",
+    }),
   };
 }
 

@@ -10,70 +10,15 @@ import {
   YAxis,
 } from "recharts";
 import { BY_CLASS, CLASS_LABEL, CLASS_ORDER, parseSequence, type SideClass } from "@/lib/amino/residues";
+import { EXAMPLES } from "@/lib/amino/examples";
 import {
   CALL_LABEL,
-  SEMAGLUTIDE,
   analyze,
   chargeCurve,
   type Analysis,
   type StructureCall,
 } from "@/lib/amino/chemistry";
-
-const EXAMPLES = [
-  {
-    id: "enk",
-    name: "Leu-enkephalin",
-    seq: "YGGFL",
-    window: 1,
-    blurb: "Five residues. Small enough to inspect every side chain.",
-  },
-  {
-    id: "sp",
-    name: "Substance P",
-    seq: "RPKPQQFFGLM",
-    window: 1,
-    blurb: "Eleven-residue neuropeptide. Mixed charge and a proline kink.",
-  },
-  {
-    id: "oxy",
-    name: "Oxytocin",
-    seq: "CYIQNCPLG",
-    window: 1,
-    blurb: "Nine residues. Two cysteines can lock a disulfide ring.",
-  },
-  {
-    id: "ins",
-    name: "Insulin B",
-    seq: "FVNQHLCGSHLVEALYLVCGERGFFYTPKT",
-    window: 7,
-    blurb: "Human insulin B chain, 30 residues.",
-  },
-  {
-    id: "sema",
-    name: "Semaglutide",
-    seq: SEMAGLUTIDE,
-    window: 7,
-    blurb: "31 residues. Three sites carry a note the plain residue card does not.",
-  },
-] as const;
-
-const CHAIN_NOTES: Record<number, { text: string; sideChain?: string }> = {
-  1: {
-    text: "X / Aib (position 2): Alpha-aminoisobutyric acid, which protects the peptide from immediate enzymatic destruction.",
-  },
-  19: {
-    text: "Lys (position 20): Modified with an attached C18 fatty diacid chain that allows the drug to bind to albumin, giving it a weekly half-life.",
-    sideChain: "—(CH₂)₄—NH—C18 diacid",
-  },
-  27: {
-    text: "Arg (position 28): Replaced to maintain stability.",
-  },
-};
-
-function chainNote(letters: string[], index: number) {
-  if (letters.join("") !== SEMAGLUTIDE) return null;
-  return CHAIN_NOTES[index] ?? null;
-}
+import { modifiedPeptide, residueNote } from "@/lib/amino/modified";
 
 const CLASS_CHIP: Record<SideClass, string> = {
   hydrophobic: "bg-hydrophobic text-ink",
@@ -127,7 +72,7 @@ export function Bench() {
     if (!example) return;
     setExampleId(id);
     setRaw(example.seq);
-    setSelected(example.id === "sema" ? 1 : 0);
+    setSelected(example.focus);
     setWindowSize(example.window);
   }
 
@@ -228,33 +173,8 @@ export function Bench() {
             {model.outcome}
           </p>
           <StatGrid model={model} />
-          <ChainStrip
-            model={model}
-            selected={safeIndex}
-            onSelect={setSelected}
-          />
-          {chainNote(model.letters, 1) ? (
-            <ul className="flex flex-col gap-2">
-              {Object.entries(CHAIN_NOTES).map(([key, note]) => {
-                const index = Number(key);
-                const active = index === safeIndex;
-                return (
-                  <li key={key}>
-                    <button
-                      type="button"
-                      onClick={() => setSelected(index)}
-                      className={
-                        "min-h-11 w-full rounded-xl border px-3 py-3 text-left text-sm text-fg " +
-                        (active ? "border-copper bg-surface" : "border-line bg-surface-2")
-                      }
-                    >
-                      {note.text}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
+          <ChainStrip model={model} selected={safeIndex} onSelect={setSelected} />
+          <PeptideNotes letters={model.letters} selected={safeIndex} onSelect={setSelected} />
           <Inspector model={model} index={safeIndex} />
           <ChargeLab
             model={model}
@@ -279,6 +199,41 @@ export function Bench() {
         </p>
       )}
     </main>
+  );
+}
+
+function PeptideNotes({
+  letters,
+  selected,
+  onSelect,
+}: {
+  letters: string[];
+  selected: number;
+  onSelect: (index: number) => void;
+}) {
+  const notes = modifiedPeptide(letters)?.notes;
+  if (!notes?.[1]) return null;
+  return (
+    <ul className="flex flex-col gap-2">
+      {Object.entries(notes).map(([key, note]) => {
+        const index = Number(key);
+        const active = index === selected;
+        return (
+          <li key={key}>
+            <button
+              type="button"
+              onClick={() => onSelect(index)}
+              className={
+                "min-h-11 w-full rounded-xl border px-3 py-3 text-left text-sm text-fg " +
+                (active ? "border-copper bg-surface" : "border-line bg-surface-2")
+              }
+            >
+              {note.text}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -365,7 +320,7 @@ function ChainStrip({
       <div className="flex flex-wrap gap-1.5">
         {model.residues.map((residue, index) => {
           const active = index === selected;
-          const noted = chainNote(model.letters, index);
+          const noted = residueNote(model.letters, index);
           return (
             <button
               key={`${residue.letter}-${index}`}
@@ -409,7 +364,7 @@ function ChainStrip({
 function Inspector({ model, index }: { model: Analysis; index: number }) {
   const residue = model.residues[index]!;
   const call = model.calls[index]!;
-  const note = chainNote(model.letters, index);
+  const note = residueNote(model.letters, index);
   const here = model.groups.filter(
     (item) =>
       item.id === `${residue.letter}-${index}` || item.id.startsWith(`${residue.letter}-${index}-`),
