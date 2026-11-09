@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test:scaffold": "node --test 'scripts/**/*.test.mjs'",
-    "test": "node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-path-prefix.test.ts src/lib/amino/chemistry.test.ts src/lib/amino/sources.test.ts src/lib/amino/stand-ins.test.ts src/lib/export.test.ts && node --test scripts/browser-smoke-verdict.test.mjs scripts/check-auth-invariant.test.mjs scripts/migration-plan.test.mjs scripts/preview.test.mjs scripts/sign-out-plan.test.mjs scripts/with-app-env.test.mjs",
+    "test": "node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-path-prefix.test.ts src/lib/amino/chemistry.test.ts src/lib/amino/sources.test.ts src/lib/amino/stand-ins.test.ts src/lib/export.test.ts src/lib/url-state.test.ts && node --test scripts/browser-smoke-verdict.test.mjs scripts/check-auth-invariant.test.mjs scripts/migration-plan.test.mjs scripts/preview.test.mjs scripts/sign-out-plan.test.mjs scripts/with-app-env.test.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."

@@ -21,6 +21,7 @@ import {
 import { modifiedPeptide, residueNote } from "@/lib/amino/modified";
 import { ExportMenu } from "@/components/aminoviz/export-menu";
 import { SourcesAndStandins } from "@/components/aminoviz/sources-and-standins";
+import { useBenchUrlState } from "@/lib/url-state";
 
 const CLASS_CHIP: Record<SideClass, string> = {
   hydrophobic: "bg-hydrophobic text-ink",
@@ -49,11 +50,20 @@ function formatSigned(value: number, digits = 2) {
 }
 
 export function Bench() {
-  const [raw, setRaw] = useState("YGGFL");
-  const [selected, setSelected] = useState(0);
-  const [pH, setPh] = useState(7.4);
-  const [windowSize, setWindowSize] = useState(1);
-  const [exampleId, setExampleId] = useState("enk");
+  const {
+    raw,
+    setRaw,
+    selected,
+    setSelected,
+    pH,
+    setPh,
+    windowSize,
+    setWindowSize,
+    exampleId,
+    setExampleId,
+    copied,
+    copyLink,
+  } = useBenchUrlState();
   const mounted = useMounted();
 
   const parsed = useMemo(() => parseSequence(raw), [raw]);
@@ -93,6 +103,17 @@ export function Bench() {
         <div className="flex items-center gap-3">
           <PeptideMark />
           <p className="font-mono text-xs tracking-widest text-copper uppercase">Aminoviz</p>
+          <button
+            type="button"
+            onClick={copyLink}
+            aria-live="polite"
+            className={
+              "ml-auto min-h-11 shrink-0 rounded-full border px-4 text-sm transition-colors " +
+              (copied ? "border-copper text-copper" : "border-line text-fg hover:border-copper")
+            }
+          >
+            {copied ? "Copied" : "Copy link"}
+          </button>
         </div>
         <h1 className="text-4xl text-fg sm:text-5xl">Read a chain. Watch the chemistry.</h1>
         <p className="max-w-xl text-muted">
