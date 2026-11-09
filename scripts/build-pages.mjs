@@ -3,6 +3,7 @@
  * Writes dist-pages/, which can be uploaded as-is.
  */
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { checkPagesDir } from "./pages-layout.mjs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
@@ -77,6 +78,11 @@ if (!headers.equals(publicHeaders)) {
 const page = readFileSync(resolve(outDir, "index.html"), "utf8");
 for (const word of ["Semaglutide", "Tirzepatide", "Retatrutide", "noimageai"]) {
   if (!page.includes(word)) throw new Error(`dist-pages/index.html is missing ${word}`);
+}
+
+const layoutProblems = checkPagesDir(outDir);
+if (layoutProblems.length) {
+  throw new Error(layoutProblems.join("\n"));
 }
 
 console.log(`Pages output: ${outDir}`);

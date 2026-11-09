@@ -22,6 +22,7 @@ import { modifiedPeptide, residueNote } from "@/lib/amino/modified";
 import { ExportMenu } from "@/components/aminoviz/export-menu";
 import { SourcesAndStandins } from "@/components/aminoviz/sources-and-standins";
 import { Compare } from "@/components/aminoviz/compare";
+import { HowToRead } from "@/components/aminoviz/how-to-read";
 import { useBenchUrlState } from "@/lib/url-state";
 
 const CLASS_CHIP: Record<SideClass, string> = {
@@ -39,10 +40,17 @@ const CALL_CHIP: Record<StructureCall, string> = {
   C: "bg-surface-2 text-muted",
 };
 
-function useMounted() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  return mounted;
+/** Null until after mount, so chart width never disagrees with the prerender. */
+function useClientLayout() {
+  const [layout, setLayout] = useState<null | { narrow: boolean }>(null);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const apply = () => setLayout({ narrow: query.matches });
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+  return layout;
 }
 
 function formatSigned(value: number, digits = 2) {
@@ -66,7 +74,7 @@ export function Bench() {
     copyLink,
   } = useBenchUrlState();
   const [view, setView] = useState<"read" | "compare">("read");
-  const mounted = useMounted();
+  const layout = useClientLayout();
 
   const parsed = useMemo(() => parseSequence(raw), [raw]);
   const model = useMemo(
@@ -100,7 +108,7 @@ export function Bench() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-10">
+    <main className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-10">
       <header className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <PeptideMark />
@@ -156,7 +164,7 @@ export function Bench() {
         <Compare />
       ) : (
       <div className="flex min-w-0 flex-col gap-6">
-      <section className="flex flex-col gap-4 rounded-card border border-line bg-surface p-4 sm:p-5">
+      <section className="flex min-w-0 flex-col gap-4 rounded-card border border-line bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap gap-2">
           {EXAMPLES.map((example) => {
             const active = exampleId === example.id;
@@ -178,7 +186,7 @@ export function Bench() {
             );
           })}
         </div>
-        <label className="flex flex-col gap-2">
+        <label className="flex min-w-0 flex-col gap-2">
           <span className="text-sm text-muted">Sequence, N-terminus first</span>
           <textarea
             value={raw}
@@ -190,7 +198,11 @@ export function Bench() {
             spellCheck={false}
             rows={3}
             placeholder="YGGFL or Tyr-Gly-Gly-Phe-Leu"
-            className="min-h-24 w-full resize-y rounded-xl border border-line bg-bg px-3 py-3 font-mono text-base text-fg outline-none focus:border-copper"
+            wrap="soft"
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoComplete="off"
+            className="min-h-24 w-full min-w-0 max-w-full resize-y rounded-xl border border-line bg-bg px-3 py-3 font-mono text-base leading-6 text-fg outline-none focus:border-copper"
           />
         </label>
         {parsed.error ? (
@@ -224,6 +236,8 @@ export function Bench() {
         <ResiduePalette onAppend={append} />
       </section>
 
+      <HowToRead />
+
       {model && focus ? (
         <>
           <p className="rounded-card border border-line bg-surface-2 px-4 py-4 text-base leading-relaxed text-fg">
@@ -240,13 +254,14 @@ export function Bench() {
             model={model}
             curve={curve}
             pH={pH}
-            mounted={mounted}
+            mounted={layout !== null}
+            narrow={layout?.narrow ?? false}
             onPh={setPh}
           />
           <Hydrophobicity
             model={model}
             windowSize={windowSize}
-            mounted={mounted}
+            mounted={layout !== null}
             onWindow={setWindowSize}
           />
           <SourcesAndStandins
@@ -323,14 +338,14 @@ function ResiduePalette({ onAppend }: { onAppend: (letter: string) => void }) {
       {CLASS_ORDER.map((klass) => (
         <div key={klass} className="flex flex-col gap-2">
           <p className="text-xs tracking-wide text-muted uppercase">{CLASS_LABEL[klass]}</p>
-          <div className="grid grid-cols-5 gap-2 sm:grid-cols-8">
+          <div className="grid min-w-0 grid-cols-5 gap-2 sm:grid-cols-8">
             {BY_CLASS[klass].map((residue) => (
               <button
                 key={residue.letter}
                 type="button"
                 onClick={() => onAppend(residue.letter)}
                 className={
-                  "flex min-h-11 flex-col items-center justify-center rounded-xl px-1 py-1.5 " +
+                  "flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-1 py-1.5 " +
                   CLASS_CHIP[klass]
                 }
                 aria-label={`Add ${residue.name}`}
@@ -379,7 +394,7 @@ function ChainStrip({
   onSelect: (index: number) => void;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <div className="flex items-end justify-between gap-3">
         <h2 className="text-2xl">The chain</h2>
         <p className="font-mono text-xs text-muted">N → C</p>
@@ -438,34 +453,36 @@ function Inspector({ model, index }: { model: Analysis; index: number }) {
   );
   const chargeHere = here.reduce((sum, item) => sum + item.charge, 0);
   return (
-    <section className="grid gap-4 rounded-card border border-line bg-surface p-4 sm:grid-cols-[auto_1fr] sm:p-5">
+    <section className="grid min-w-0 gap-4 rounded-card border border-line bg-surface p-4 sm:grid-cols-[auto_1fr] sm:p-5">
       <div
         className={
-          "flex h-20 w-20 items-center justify-center rounded-2xl font-mono text-3xl " +
+          "flex h-16 w-16 items-center justify-center rounded-2xl font-mono text-2xl sm:h-20 sm:w-20 sm:text-3xl " +
           CLASS_CHIP[residue.klass]
         }
         aria-hidden="true"
       >
         {residue.letter}
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <p className="text-sm text-muted">
           Residue {index + 1} of {model.length}
         </p>
-        <h2 className="text-3xl">
+        <h2 className="text-2xl sm:text-3xl">
           {residue.name}{" "}
-          <span className="font-mono text-lg text-muted">
+          <span className="mt-0.5 block font-mono text-base text-muted sm:mt-0 sm:inline sm:text-lg">
             {residue.code3} · {residue.letter}
           </span>
         </h2>
-        <p className="font-mono text-sm text-copper">{note?.sideChain ?? residue.sideChain}</p>
+        <p className="font-mono text-sm break-words text-copper">
+          {note?.sideChain ?? residue.sideChain}
+        </p>
         {note ? (
           <p className="rounded-xl border border-copper bg-surface-2 px-3 py-2 text-sm text-fg">
             {note.text}
           </p>
         ) : null}
         {note?.sideChain ? null : <p className="text-fg">{residue.note}</p>}
-        <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+        <dl className="mt-1 grid grid-cols-1 gap-y-2 text-sm sm:grid-cols-3 sm:gap-x-4">
           <Fact label="Class" value={CLASS_LABEL[residue.klass]} />
           <Fact label="Call" value={CALL_LABEL[call]} />
           <Fact label="Hydropathy" value={formatSigned(residue.kd, 1)} />
@@ -489,9 +506,9 @@ function Inspector({ model, index }: { model: Analysis; index: number }) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-muted">{label}</dt>
-      <dd className="font-mono text-fg tabular-nums">{value}</dd>
+      <dd className="font-mono break-words text-fg tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -501,16 +518,19 @@ function ChargeLab({
   curve,
   pH,
   mounted,
+  narrow,
   onPh,
 }: {
   model: Analysis;
   curve: { pH: number; charge: number }[];
   pH: number;
   mounted: boolean;
+  narrow: boolean;
   onPh: (value: number) => void;
 }) {
+  const ticks = narrow ? [0, 4, 7.4, 10, 14] : [0, 2, 4, 6, 7.4, 10, 12, 14];
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-4">
       <div>
         <h2 className="text-2xl">Charge against pH</h2>
         <p className="mt-1 text-sm text-muted">
@@ -538,21 +558,23 @@ function ChargeLab({
           aria-valuenow={pH}
           aria-valuetext={`pH ${pH.toFixed(1)}`}
         />
-        <div className="h-56 w-full">
+        <div className="h-56 w-full min-w-0 max-w-full">
           {mounted ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={curve} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+              <LineChart data={curve} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
                 <CartesianGrid stroke="var(--color-line)" vertical={false} />
                 <XAxis
                   dataKey="pH"
                   stroke="var(--color-muted)"
                   tick={{ fill: "var(--color-muted)", fontSize: 12 }}
-                  ticks={[0, 2, 4, 6, 7.4, 10, 12, 14]}
+                  tickMargin={6}
+                  ticks={ticks}
+                  interval={0}
                 />
                 <YAxis
                   stroke="var(--color-muted)"
                   tick={{ fill: "var(--color-muted)", fontSize: 12 }}
-                  width={36}
+                  width={40}
                 />
                 <Tooltip
                   formatter={(value) => [Number(value).toFixed(2), "Charge"]}
@@ -618,7 +640,7 @@ function Hydrophobicity({
   }));
   const choices = [1, 3, 5, 7, 9].filter((size) => size <= model.length || size === 1);
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <h2 className="text-2xl">Hydropathy</h2>
       <p className="text-sm text-muted">
         Kyte–Doolittle scores. Above zero is hydrophobic. A window averages neighboring residues,
@@ -643,20 +665,22 @@ function Hydrophobicity({
           </button>
         ))}
       </div>
-      <div className="h-56 rounded-card border border-line bg-surface p-3">
+      <div className="h-56 min-w-0 max-w-full rounded-card border border-line bg-surface p-3">
         {mounted ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
               <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis
                 dataKey="position"
                 stroke="var(--color-muted)"
                 tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+                tickMargin={6}
+                minTickGap={32}
               />
               <YAxis
                 stroke="var(--color-muted)"
                 tick={{ fill: "var(--color-muted)", fontSize: 12 }}
-                width={36}
+                width={48}
               />
               <Tooltip
                 formatter={(value) => [Number(value).toFixed(2), "Score"]}
@@ -695,8 +719,11 @@ function Composition({ model }: { model: Analysis }) {
       <h2 className="text-2xl">Composition</h2>
       <ul className="flex flex-col gap-2">
         {model.composition.map((row) => (
-          <li key={row.klass} className="grid grid-cols-[7.5rem_1fr_auto] items-center gap-3">
-            <span className="text-sm text-fg">{row.label}</span>
+          <li
+            key={row.klass}
+            className="grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[7.5rem_1fr_auto] sm:gap-3"
+          >
+            <span className="min-w-0 text-sm text-fg">{row.label}</span>
             <span className="h-2 overflow-hidden rounded-full bg-surface-2">
               <span
                 className={"block h-full rounded-full " + CLASS_CHIP[row.klass].split(" ")[0]}

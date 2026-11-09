@@ -236,7 +236,7 @@ function SummaryTable({
           </li>
         ))}
       </ul>
-      <div className="hidden max-w-full overflow-x-auto rounded-card border border-line bg-surface sm:block">
+      <div className="hidden min-w-0 max-w-full overflow-x-auto rounded-card border border-line bg-surface sm:block">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">
           Length, mass, net charge at the current pH, isoelectric point, and GRAVY
@@ -293,7 +293,7 @@ function Alignment({
   }
   return (
     <div
-      className="max-w-full overflow-x-auto overscroll-x-contain rounded-card border border-line bg-surface"
+      className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-card border border-line bg-surface"
       tabIndex={0}
       aria-label="Peptide chains aligned by position"
     >
@@ -554,7 +554,11 @@ function SequenceEditor({
                   spellCheck={false}
                   rows={3}
                   placeholder="YGGFL"
-                  className="min-h-20 w-full resize-y rounded-xl border border-line bg-bg px-3 py-3 font-mono text-sm text-fg outline-none focus:border-copper"
+                  wrap="soft"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  className="min-h-20 w-full min-w-0 max-w-full resize-y rounded-xl border border-line bg-bg px-3 py-3 font-mono text-base text-fg outline-none focus:border-copper"
                 />
               </label>
               {chain?.error ? (
