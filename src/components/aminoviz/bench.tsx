@@ -19,6 +19,7 @@ import {
   type StructureCall,
 } from "@/lib/amino/chemistry";
 import { modifiedPeptide, residueNote } from "@/lib/amino/modified";
+import { SourcesAndStandins } from "@/components/aminoviz/sources-and-standins";
 
 const CLASS_CHIP: Record<SideClass, string> = {
   hydrophobic: "bg-hydrophobic text-ink",
@@ -174,7 +175,9 @@ export function Bench() {
           </p>
           <StatGrid model={model} />
           <ChainStrip model={model} selected={safeIndex} onSelect={setSelected} />
+          <SourcesAndStandins letters={model.letters} part="badges" />
           <PeptideNotes letters={model.letters} selected={safeIndex} onSelect={setSelected} />
+          <SourcesAndStandins letters={model.letters} part="sources" />
           <Inspector model={model} index={safeIndex} />
           <ChargeLab
             model={model}
@@ -188,6 +191,11 @@ export function Bench() {
             windowSize={windowSize}
             mounted={mounted}
             onWindow={setWindowSize}
+          />
+          <SourcesAndStandins
+            letters={model.letters}
+            hydropathy={model.hydrophobicity}
+            part="charts"
           />
           <Composition model={model} />
           <MethodNotes />
