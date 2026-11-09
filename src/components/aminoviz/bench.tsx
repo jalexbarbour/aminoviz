@@ -19,6 +19,7 @@ import {
   type StructureCall,
 } from "@/lib/amino/chemistry";
 import { modifiedPeptide, residueNote } from "@/lib/amino/modified";
+import { ExportMenu } from "@/components/aminoviz/export-menu";
 import { SourcesAndStandins } from "@/components/aminoviz/sources-and-standins";
 
 const CLASS_CHIP: Record<SideClass, string> = {
@@ -174,6 +175,7 @@ export function Bench() {
             {model.outcome}
           </p>
           <StatGrid model={model} />
+          <ExportMenu model={model} exampleId={exampleId} selected={safeIndex} />
           <ChainStrip model={model} selected={safeIndex} onSelect={setSelected} />
           <SourcesAndStandins letters={model.letters} part="badges" />
           <PeptideNotes letters={model.letters} selected={safeIndex} onSelect={setSelected} />
