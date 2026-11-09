@@ -70,8 +70,22 @@ describe("stand-in detection", () => {
     assert.equal(standInBadgeText("leucine"), "Leu");
   });
 
+  it("marks bivalirudin D-phenylalanine with phenylalanine numbers", () => {
+    const seq = letters("biv");
+    const hits = standInHits(seq);
+    assert.deepEqual(
+      hits.map((hit) => ({ index: hit.index, label: hit.accessibleLabel, copiedFrom: hit.copiedFrom })),
+      [{ index: 0, label: "phenylalanine stand-in", copiedFrom: "F" }],
+    );
+    assert.equal(standInBadgeText(hits[0]!.label), "Phe");
+    assert.equal(seq[0], "F");
+    assert.equal(RESIDUES[seq[0]!]!.kd, RESIDUES.F!.kd);
+    assert.equal(RESIDUES[seq[0]!]!.helix, RESIDUES.F!.helix);
+    assert.equal(standInAt(seq, 11), null);
+  });
+
   it("finds no stand-ins on unmodified examples or a plain leucine chain", () => {
-    for (const id of ["enk", "sp", "oxy", "ins"]) {
+    for (const id of ["enk", "sp", "oxy", "ins", "lira", "exe", "teri"]) {
       assert.deepEqual(standInHits(letters(id)), [], id);
     }
     assert.deepEqual(standInHits(["L", "L", "L"]), []);

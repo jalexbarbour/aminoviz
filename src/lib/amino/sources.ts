@@ -62,6 +62,30 @@ export const SOURCES: Record<string, readonly SourceLink[]> = {
       url: "https://precision.fda.gov/ginas/app/ui/substances/NOP2Y096GV",
     },
   ],
+  lira: [
+    {
+      label: "PubChem CID 16134956",
+      url: "https://pubchem.ncbi.nlm.nih.gov/compound/16134956",
+    },
+  ],
+  exe: [
+    {
+      label: "PubChem CID 45588096",
+      url: "https://pubchem.ncbi.nlm.nih.gov/compound/45588096",
+    },
+  ],
+  teri: [
+    {
+      label: "PubChem CID 16133850",
+      url: "https://pubchem.ncbi.nlm.nih.gov/compound/16133850",
+    },
+  ],
+  biv: [
+    {
+      label: "PubChem CID 16129704",
+      url: "https://pubchem.ncbi.nlm.nih.gov/compound/16129704",
+    },
+  ],
 };
 
 export function sourcesForExample(id: string): readonly SourceLink[] {

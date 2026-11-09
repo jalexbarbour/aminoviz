@@ -33,6 +33,10 @@ describe("sources", () => {
       sema: "56843331",
       tirz: "166567236",
       reta: "171390338",
+      lira: "16134956",
+      exe: "45588096",
+      teri: "16133850",
+      biv: "16129704",
     };
     for (const [id, compound] of Object.entries(cid)) {
       assert.ok(
